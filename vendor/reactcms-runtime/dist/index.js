@@ -3,8 +3,9 @@ var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { en
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
 // src/RuntimeProvider.tsx
-import { useCallback as useCallback2, useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
+import { useCallback as useCallback2, useContext as useContext2, useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
 import {
+  CMSContext as CMSContext2,
   CMSProvider,
   EditableRegistryContext,
   MessageBus as MessageBus2,
@@ -378,7 +379,8 @@ function BuilderSections({
   apiKey,
   pageId: pageIdOverride,
   fallback = null,
-  layout: Layout = null
+  layout: Layout = null,
+  preserveApplicationPage = false
 }) {
   const pageId = useMemo(
     () => pageIdOverride?.replace(/^\/+|\/+$/g, "") || resolvePageId(),
@@ -473,6 +475,10 @@ function BuilderSections({
     },
     group.key
   )) : null;
+  if (preserveApplicationPage) return /* @__PURE__ */ jsxs(Fragment, { children: [
+    fallback,
+    additions
+  ] });
   if (!resolved || !tree) return /* @__PURE__ */ jsxs(Fragment, { children: [
     fallback,
     additions
@@ -734,7 +740,7 @@ async function reportVersions(websiteId, apiKey) {
 }
 
 // src/RuntimeProvider.tsx
-import { jsx as jsx2 } from "react/jsx-runtime";
+import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 function resolveCurrentPageId() {
   if (typeof window === "undefined") return "global";
   const pageOverride = new URLSearchParams(window.location.search).get("page");
@@ -753,12 +759,51 @@ function dispatchRegionValue(websiteId, pageId, regionId, value) {
     timestamp: Date.now()
   });
 }
+function runtimeRegionContentSource(editMode) {
+  return editMode ? "draft" : "published";
+}
+function RegionContentHydrator({
+  websiteId,
+  apiKey
+}) {
+  const cms = useContext2(CMSContext2);
+  const pageId = useMemo2(resolveCurrentPageId, []);
+  const source = runtimeRegionContentSource(Boolean(cms?.editMode));
+  useEffect2(() => {
+    let active = true;
+    const hydrate = source === "draft" ? editableSync.getDraftRegions(apiKey, websiteId, pageId) : editableSync.getPublishedRegions(apiKey, websiteId, pageId);
+    void hydrate.then((regions) => {
+      if (!active) return;
+      Object.entries(regions).forEach(([regionId, value]) => {
+        dispatchRegionValue(websiteId, pageId, regionId, value);
+      });
+    });
+    const subscribe = source === "draft" ? editableSync.subscribeToDraftRegions : editableSync.subscribeToPublishedRegions;
+    const unsubscribe = subscribe(
+      apiKey,
+      websiteId,
+      pageId,
+      (regions) => {
+        if (!active) return;
+        Object.entries(regions).forEach(([regionId, value]) => {
+          dispatchRegionValue(websiteId, pageId, regionId, value);
+        });
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [apiKey, pageId, source, websiteId]);
+  return null;
+}
 function RuntimeProvider({
   websiteId,
   apiKey,
   routes,
   theme = null,
   pageTrees,
+  preserveApplicationPage = false,
   children
 }) {
   const [layouts, setLayouts] = useState2({});
@@ -831,36 +876,16 @@ function RuntimeProvider({
     });
   };
   useEffect2(() => {
-    const pageId = resolveCurrentPageId();
     const start = async () => {
       await registerWebsite(websiteId, apiKey);
       await reportVersions(websiteId, apiKey);
       await registerRoutes(websiteId, apiKey, routes);
       if (theme) await registerTheme(websiteId, apiKey, theme);
       HeartbeatService.start(websiteId, apiKey);
-      try {
-        const published = await editableSync.getPublishedRegions(apiKey, websiteId, pageId);
-        Object.entries(published).forEach(([regionId, value]) => {
-          dispatchRegionValue(websiteId, pageId, regionId, value);
-        });
-      } catch (error) {
-        console.warn("[ReactCMS Runtime] Failed to hydrate published regions:", error);
-      }
     };
     void start();
-    const unsubscribe = editableSync.subscribeToPublishedRegions(
-      apiKey,
-      websiteId,
-      pageId,
-      (published) => {
-        Object.entries(published).forEach(([regionId, value]) => {
-          dispatchRegionValue(websiteId, pageId, regionId, value);
-        });
-      }
-    );
     return () => {
       HeartbeatService.stop();
-      unsubscribe();
     };
   }, [websiteId, apiKey, routes, theme]);
   useEffect2(() => {
@@ -883,19 +908,23 @@ function RuntimeProvider({
       void registerEditableRegions(websiteId, apiKey, pageId, pageRegions);
     });
   }, [regions, websiteId, apiKey]);
-  return /* @__PURE__ */ jsx2(RuntimeContext.Provider, { value: runtimeContextValue, children: /* @__PURE__ */ jsx2(EditableRegistryContext.Provider, { value: { registerRegion, unregisterRegion }, children: /* @__PURE__ */ jsx2(CMSProvider, { websiteId, apiKey, environment: "production", children: /* @__PURE__ */ jsx2(
-    BuilderSections,
-    {
-      websiteId,
-      apiKey,
-      fallback: children,
-      layout: defaultLayout?.component
-    }
-  ) }) }) });
+  return /* @__PURE__ */ jsx2(RuntimeContext.Provider, { value: runtimeContextValue, children: /* @__PURE__ */ jsx2(EditableRegistryContext.Provider, { value: { registerRegion, unregisterRegion }, children: /* @__PURE__ */ jsxs2(CMSProvider, { websiteId, apiKey, environment: "production", children: [
+    /* @__PURE__ */ jsx2(RegionContentHydrator, { websiteId, apiKey }),
+    /* @__PURE__ */ jsx2(
+      BuilderSections,
+      {
+        websiteId,
+        apiKey,
+        fallback: children,
+        layout: defaultLayout?.component,
+        preserveApplicationPage
+      }
+    )
+  ] }) }) });
 }
 
 // src/CMSLayout.tsx
-import { useContext as useContext2, useEffect as useEffect3 } from "react";
+import { useContext as useContext3, useEffect as useEffect3 } from "react";
 var DEFAULT_SLOTS = ["main"];
 function CMSLayout({
   id,
@@ -904,7 +933,7 @@ function CMSLayout({
   isDefault = false,
   slots = DEFAULT_SLOTS
 }) {
-  const context = useContext2(RuntimeContext);
+  const context = useContext3(RuntimeContext);
   const registerLayout = context?.registerLayout;
   useEffect3(() => {
     if (registerLayout) {
@@ -922,9 +951,9 @@ function CMSLayout({
 }
 
 // src/CMSNavigation.tsx
-import { useContext as useContext3, useEffect as useEffect4 } from "react";
+import { useContext as useContext4, useEffect as useEffect4 } from "react";
 function CMSNavigation({ id, label, items }) {
-  const context = useContext3(RuntimeContext);
+  const context = useContext4(RuntimeContext);
   const registerNavigation2 = context?.registerNavigation;
   useEffect4(() => {
     if (registerNavigation2) {
@@ -940,7 +969,7 @@ function CMSNavigation({ id, label, items }) {
 }
 
 // src/RouteRegistry.tsx
-import { useContext as useContext4, useEffect as useEffect5, useState as useState3 } from "react";
+import { useContext as useContext5, useEffect as useEffect5, useState as useState3 } from "react";
 import { Routes, Route } from "react-router-dom";
 import { ref as ref11, onValue as onValue2 } from "firebase/database";
 import { getFirebaseDatabase as getFirebaseDatabase11 } from "@anshif.rainhopes/reactcms-sdk";
@@ -948,7 +977,7 @@ import { paths as paths11 } from "@anshif.rainhopes/shared";
 import { jsx as jsx3 } from "react/jsx-runtime";
 function RouteRegistry({ websiteId, apiKey }) {
   const [dynamicRoutes, setDynamicRoutes] = useState3([]);
-  const runtime = useContext4(RuntimeContext);
+  const runtime = useContext5(RuntimeContext);
   useEffect5(() => {
     const db = getFirebaseDatabase11(apiKey);
     const routesRef = ref11(db, paths11.registryRoutes(websiteId));

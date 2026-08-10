@@ -381,7 +381,8 @@ function BuilderSections({
   apiKey,
   pageId: pageIdOverride,
   fallback = null,
-  layout: Layout = null
+  layout: Layout = null,
+  preserveApplicationPage = false
 }) {
   const pageId = (0, import_react2.useMemo)(
     () => pageIdOverride?.replace(/^\/+|\/+$/g, "") || resolvePageId(),
@@ -476,6 +477,10 @@ function BuilderSections({
     },
     group.key
   )) : null;
+  if (preserveApplicationPage) return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+    fallback,
+    additions
+  ] });
   if (!resolved || !tree) return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
     fallback,
     additions
@@ -756,12 +761,51 @@ function dispatchRegionValue(websiteId, pageId, regionId, value) {
     timestamp: Date.now()
   });
 }
+function runtimeRegionContentSource(editMode) {
+  return editMode ? "draft" : "published";
+}
+function RegionContentHydrator({
+  websiteId,
+  apiKey
+}) {
+  const cms = (0, import_react3.useContext)(import_reactcms_sdk11.CMSContext);
+  const pageId = (0, import_react3.useMemo)(resolveCurrentPageId, []);
+  const source = runtimeRegionContentSource(Boolean(cms?.editMode));
+  (0, import_react3.useEffect)(() => {
+    let active = true;
+    const hydrate = source === "draft" ? import_reactcms_sdk11.editableSync.getDraftRegions(apiKey, websiteId, pageId) : import_reactcms_sdk11.editableSync.getPublishedRegions(apiKey, websiteId, pageId);
+    void hydrate.then((regions) => {
+      if (!active) return;
+      Object.entries(regions).forEach(([regionId, value]) => {
+        dispatchRegionValue(websiteId, pageId, regionId, value);
+      });
+    });
+    const subscribe = source === "draft" ? import_reactcms_sdk11.editableSync.subscribeToDraftRegions : import_reactcms_sdk11.editableSync.subscribeToPublishedRegions;
+    const unsubscribe = subscribe(
+      apiKey,
+      websiteId,
+      pageId,
+      (regions) => {
+        if (!active) return;
+        Object.entries(regions).forEach(([regionId, value]) => {
+          dispatchRegionValue(websiteId, pageId, regionId, value);
+        });
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [apiKey, pageId, source, websiteId]);
+  return null;
+}
 function RuntimeProvider({
   websiteId,
   apiKey,
   routes,
   theme = null,
   pageTrees,
+  preserveApplicationPage = false,
   children
 }) {
   const [layouts, setLayouts] = (0, import_react3.useState)({});
@@ -834,36 +878,16 @@ function RuntimeProvider({
     });
   };
   (0, import_react3.useEffect)(() => {
-    const pageId = resolveCurrentPageId();
     const start = async () => {
       await registerWebsite(websiteId, apiKey);
       await reportVersions(websiteId, apiKey);
       await registerRoutes(websiteId, apiKey, routes);
       if (theme) await registerTheme(websiteId, apiKey, theme);
       HeartbeatService.start(websiteId, apiKey);
-      try {
-        const published = await import_reactcms_sdk11.editableSync.getPublishedRegions(apiKey, websiteId, pageId);
-        Object.entries(published).forEach(([regionId, value]) => {
-          dispatchRegionValue(websiteId, pageId, regionId, value);
-        });
-      } catch (error) {
-        console.warn("[ReactCMS Runtime] Failed to hydrate published regions:", error);
-      }
     };
     void start();
-    const unsubscribe = import_reactcms_sdk11.editableSync.subscribeToPublishedRegions(
-      apiKey,
-      websiteId,
-      pageId,
-      (published) => {
-        Object.entries(published).forEach(([regionId, value]) => {
-          dispatchRegionValue(websiteId, pageId, regionId, value);
-        });
-      }
-    );
     return () => {
       HeartbeatService.stop();
-      unsubscribe();
     };
   }, [websiteId, apiKey, routes, theme]);
   (0, import_react3.useEffect)(() => {
@@ -886,15 +910,19 @@ function RuntimeProvider({
       void registerEditableRegions(websiteId, apiKey, pageId, pageRegions);
     });
   }, [regions, websiteId, apiKey]);
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RuntimeContext.Provider, { value: runtimeContextValue, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_reactcms_sdk11.EditableRegistryContext.Provider, { value: { registerRegion, unregisterRegion }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_reactcms_sdk11.CMSProvider, { websiteId, apiKey, environment: "production", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-    BuilderSections,
-    {
-      websiteId,
-      apiKey,
-      fallback: children,
-      layout: defaultLayout?.component
-    }
-  ) }) }) });
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RuntimeContext.Provider, { value: runtimeContextValue, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_reactcms_sdk11.EditableRegistryContext.Provider, { value: { registerRegion, unregisterRegion }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_reactcms_sdk11.CMSProvider, { websiteId, apiKey, environment: "production", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RegionContentHydrator, { websiteId, apiKey }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      BuilderSections,
+      {
+        websiteId,
+        apiKey,
+        fallback: children,
+        layout: defaultLayout?.component,
+        preserveApplicationPage
+      }
+    )
+  ] }) }) });
 }
 
 // src/CMSLayout.tsx

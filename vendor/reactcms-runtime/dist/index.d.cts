@@ -9,6 +9,7 @@ interface RuntimeProviderProps {
     routes: any[];
     theme?: ThemeTokens | null;
     pageTrees?: Record<string, PageComponentTree>;
+    preserveApplicationPage?: boolean;
     children: React__default.ReactNode;
 }
 /**
@@ -16,7 +17,7 @@ interface RuntimeProviderProps {
  * through the native runtime renderer. The application children remain the
  * fallback for routes that do not yet have a published component tree.
  */
-declare function RuntimeProvider({ websiteId, apiKey, routes, theme, pageTrees, children, }: RuntimeProviderProps): React__default.JSX.Element;
+declare function RuntimeProvider({ websiteId, apiKey, routes, theme, pageTrees, preserveApplicationPage, children, }: RuntimeProviderProps): React__default.JSX.Element;
 
 interface CMSLayoutProps {
     id: string;
@@ -46,7 +47,8 @@ interface BuilderSectionsProps {
     pageId?: string;
     fallback?: React__default.ReactNode;
     layout?: React__default.ComponentType<any> | null;
+    preserveApplicationPage?: boolean;
 }
-declare function BuilderSections({ websiteId, apiKey, pageId: pageIdOverride, fallback, layout: Layout, }: BuilderSectionsProps): React__default.JSX.Element;
+declare function BuilderSections({ websiteId, apiKey, pageId: pageIdOverride, fallback, layout: Layout, preserveApplicationPage, }: BuilderSectionsProps): React__default.JSX.Element;
 
 export { BuilderSections, CMSLayout, CMSNavigation, RouteRegistry, RuntimeProvider };
