@@ -30,10 +30,13 @@ window.__REACTCMS_GIT_CONTENT__ = {
     "ad.feature2_title": "Data-Driven Optimization",
     "ad.feature3_desc": "From concept to launch, our team ensures seamless execution and continuous support at scale.",
     "ad.feature3_title": "End-to-End Implementation",
-    "ad.heading": "About Advertisement",
+    "ad.heading": {
+      "color": "#000000",
+      "text": "About Advertisement"
+    },
     "ad.hero_image": {
       "alt": "ad",
-      "src": "https://static.vecteezy.com/system/resources/previews/010/376/649/non_2x/api-application-programming-interface-in-the-shape-of-sphere-with-hexagon-pattern-in-wireframe-hand-software-development-tool-information-technology-and-business-concept-illustration-vector.jpg"
+      "src": "https://naotw-pd.s3.amazonaws.com/sharehamburger.jpg"
     },
     "ad.stat1_text": {
       "color": "#000000",
