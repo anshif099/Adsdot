@@ -148,7 +148,17 @@ function refreshNodeIds(node, suffix) {
     children: node.children?.map((child, index) => refreshNodeIds(child, `${suffix}_${index}`))
   };
 }
-function makeRuntimeNode(type, locale) {
+function normalizedRuntimePlacement(value) {
+  if (!value || typeof value !== "object") return { position: "footer" };
+  const candidate = value;
+  const anchorRegionId = String(candidate.anchorRegionId || "").trim();
+  const position = ["before", "inside", "after"].includes(String(candidate.position)) ? candidate.position : "footer";
+  return anchorRegionId && position !== "footer" ? { anchorRegionId, position } : { position: "footer" };
+}
+function placementKey(placement) {
+  return placement.anchorRegionId ? `${placement.position}:${placement.anchorRegionId}` : "footer";
+}
+function makeRuntimeNode(type, locale, placement = { position: "footer" }) {
   const safeType = type || "section";
   const id = `${safeType.replace(/[^a-zA-Z0-9_-]/g, "_")}_${Date.now().toString(36)}`;
   const field = ["input", "textarea-field", "select-field", "checkbox"].includes(safeType);
@@ -162,7 +172,8 @@ function makeRuntimeNode(type, locale) {
       },
       design: {}
     },
-    children: []
+    children: [],
+    ...placement.anchorRegionId ? { metadata: { runtimePlacement: placement } } : {}
   };
 }
 function RuntimeAdditionsPortal({
@@ -170,6 +181,9 @@ function RuntimeAdditionsPortal({
   pageId,
   locale,
   tree,
+  nodes,
+  placement,
+  hostKey,
   theme,
   editMode,
   onTreeChange
@@ -180,13 +194,36 @@ function RuntimeAdditionsPortal({
   const clipboard = (0, import_react2.useRef)(null);
   (0, import_react2.useEffect)(() => {
     if (typeof document === "undefined") return void 0;
-    let portalHost = document.querySelector("[data-rcms-runtime-additions-host]");
+    let portalHost = Array.from(document.querySelectorAll("[data-rcms-runtime-additions-host]")).find((candidate) => candidate.dataset.rcmsRuntimeAdditionsHost === hostKey) || null;
     let created = false;
     const attach = () => {
       if (!portalHost) {
         portalHost = document.createElement("div");
-        portalHost.dataset.rcmsRuntimeAdditionsHost = "true";
+        portalHost.dataset.rcmsRuntimeAdditionsHost = hostKey;
         created = true;
+      }
+      const anchor = placement.anchorRegionId ? Array.from(document.querySelectorAll("[data-rcms-region]")).find((candidate) => candidate.dataset.rcmsRegion === placement.anchorRegionId) : null;
+      if (anchor) {
+        if (placement.position === "inside") {
+          if (portalHost.parentElement !== anchor) anchor.appendChild(portalHost);
+          setHost(portalHost);
+          return;
+        }
+        const parent2 = anchor.parentElement;
+        if (parent2 && placement.position === "before") {
+          if (portalHost.parentElement !== parent2 || portalHost.nextSibling !== anchor) {
+            parent2.insertBefore(portalHost, anchor);
+          }
+          setHost(portalHost);
+          return;
+        }
+        if (parent2 && placement.position === "after") {
+          if (portalHost.parentElement !== parent2 || anchor.nextSibling !== portalHost) {
+            parent2.insertBefore(portalHost, anchor.nextSibling);
+          }
+          setHost(portalHost);
+          return;
+        }
       }
       const footer = document.querySelector(
         'footer, [data-rcms-type="footer"], .footer-section'
@@ -208,7 +245,7 @@ function RuntimeAdditionsPortal({
       observer.disconnect();
       if (created) portalHost?.remove();
     };
-  }, []);
+  }, [hostKey, placement.anchorRegionId, placement.position]);
   const commit = (0, import_react2.useCallback)((next) => {
     onTreeChange(next);
     import_reactcms_sdk.MessageBus.send("rcms/v1/field-update", websiteId, {
@@ -218,11 +255,11 @@ function RuntimeAdditionsPortal({
     });
   }, [onTreeChange, pageId, websiteId]);
   const addNode = (0, import_react2.useCallback)((componentType = "section", targetId = "", position = "after") => {
-    const addition = makeRuntimeNode(componentType, locale);
+    const addition = makeRuntimeNode(componentType, locale, placement);
     const children = targetId ? insertNode(tree.children, targetId, position, addition) : [...tree.children, addition];
     commit({ ...tree, children });
     setSelectedIds([addition.id]);
-  }, [commit, locale, tree]);
+  }, [commit, locale, placement, tree]);
   const handleMutation = (0, import_react2.useCallback)((mutation) => {
     commit({
       ...tree,
@@ -289,10 +326,10 @@ function RuntimeAdditionsPortal({
   }, [commit, tree]);
   if (!host) return null;
   return (0, import_react_dom.createPortal)(
-    tree.children.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    nodes.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       import_reactcms_renderer.RuntimeRenderer,
       {
-        tree,
+        tree: { ...tree, children: nodes },
         locale,
         responsiveMode: "desktop",
         mode: editMode ? "edit" : "runtime",
@@ -386,18 +423,40 @@ function BuilderSections({
     }
   }), [pageId]);
   const additionsTree = runtimeAdditions || (0, import_reactcms_renderer.createRuntimeAdditionsTree)(pageId, locale);
-  const additions = runtimeAdditions?.children.length || cms?.editMode ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+  const additionGroups = (0, import_react2.useMemo)(() => {
+    const groups = /* @__PURE__ */ new Map();
+    additionsTree.children.forEach((node) => {
+      const placement = normalizedRuntimePlacement(node.metadata?.runtimePlacement);
+      const key = placementKey(placement);
+      const group = groups.get(key) || { key, placement, nodes: [] };
+      group.nodes.push(node);
+      groups.set(key, group);
+    });
+    if (!groups.size && cms?.editMode) {
+      groups.set("footer", {
+        key: "footer",
+        placement: { position: "footer" },
+        nodes: []
+      });
+    }
+    return Array.from(groups.values());
+  }, [additionsTree, cms?.editMode]);
+  const additions = additionGroups.length ? additionGroups.map((group) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
     RuntimeAdditionsPortal,
     {
       websiteId,
       pageId,
       locale,
       tree: additionsTree,
+      nodes: group.nodes,
+      placement: group.placement,
+      hostKey: group.key,
       theme,
       editMode: Boolean(cms?.editMode),
       onTreeChange: setRuntimeAdditions
-    }
-  ) : null;
+    },
+    group.key
+  )) : null;
   if (!resolved || !tree) return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
     fallback,
     additions

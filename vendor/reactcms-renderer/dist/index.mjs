@@ -297,11 +297,47 @@ function BuiltinComponent({
         background: "#f8fafc"
       }, children: "Choose an image in the Inspector" });
     case "gallery":
-      return /* @__PURE__ */ jsx("div", { style: {
-        display: "grid",
-        gridTemplateColumns: `repeat(${props.columns || 3},minmax(0,1fr))`,
-        gap: `${props.gap || 16}px`
-      }, children: (props.images || []).map((image, index) => /* @__PURE__ */ jsx("img", { src: image.src, alt: image.alt || "", style: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: "12px" } }, image.id || index)) });
+      return /* @__PURE__ */ jsxs(Fragment, { children: [
+        text("title") ? inline("title", "", "h2", {
+          margin: "0 0 10px",
+          color: "#0f172a",
+          fontSize: "38px",
+          textAlign: "center"
+        }) : null,
+        text("subtitle") ? inline("subtitle", "", "p", {
+          maxWidth: "760px",
+          margin: "0 auto 28px",
+          color: "#64748b",
+          fontSize: "17px",
+          lineHeight: 1.7,
+          textAlign: "center"
+        }) : null,
+        /* @__PURE__ */ jsx("div", { style: {
+          display: "grid",
+          gridTemplateColumns: `repeat(auto-fit,minmax(min(100%,${props.columns === "4" ? "210px" : "250px"}),1fr))`,
+          gap: `${props.gap || 16}px`
+        }, children: (props.images || []).map((image, index) => /* @__PURE__ */ jsxs("figure", { style: {
+          margin: 0,
+          overflow: "hidden",
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          background: "#ffffff",
+          boxShadow: "0 12px 28px rgba(15,23,42,.08)"
+        }, children: [
+          /* @__PURE__ */ jsx(
+            "img",
+            {
+              src: image.src,
+              alt: image.alt || "",
+              style: { width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }
+            }
+          ),
+          image.title || image.caption || image.description ? /* @__PURE__ */ jsxs("figcaption", { style: { padding: "14px 16px 16px", color: "#475569", lineHeight: 1.55 }, children: [
+            image.title ? /* @__PURE__ */ jsx("strong", { style: { display: "block", marginBottom: "5px", color: "#0f172a", fontSize: "15px" }, children: image.title }) : null,
+            /* @__PURE__ */ jsx("span", { style: { fontSize: "13px" }, children: image.description || image.caption })
+          ] }) : null
+        ] }, image.id || index)) })
+      ] });
     case "video":
       return props.url ? /* @__PURE__ */ jsx("video", { src: props.url, poster: props.poster, controls: props.controls !== false, autoPlay: !!props.autoplay, style: { width: "100%", borderRadius: "16px", background: "#020617" } }) : /* @__PURE__ */ jsx("div", { style: { minHeight: "300px", borderRadius: "16px", background: "#0f172a", color: "#94a3b8", display: "grid", placeItems: "center" }, children: "Choose a video in the Inspector" });
     case "features":
