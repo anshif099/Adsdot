@@ -368,9 +368,10 @@ import { ref, set, get, onValue } from "firebase/database";
 
 // src/firebase/firebaseClient.ts
 import { initializeApp, getApps } from "firebase/app";
-import { getDatabase } from "firebase/database";
+import { forceWebSockets, getDatabase } from "firebase/database";
 var firebaseApp = null;
 var firebaseDatabase = null;
+var firebaseTransportConfigured = false;
 var DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDX2mOPJqAUguPJNPGj9sxEVVr1dA1_8CQ",
   authDomain: "react-cms-pro.firebaseapp.com",
@@ -394,6 +395,10 @@ function getFirebaseApp(apiKey) {
 }
 function getFirebaseDatabase(apiKey) {
   if (firebaseDatabase) return firebaseDatabase;
+  if (!firebaseTransportConfigured) {
+    forceWebSockets();
+    firebaseTransportConfigured = true;
+  }
   const app = getFirebaseApp(apiKey);
   firebaseDatabase = getDatabase(app);
   return firebaseDatabase;
