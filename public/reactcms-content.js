@@ -189,6 +189,14 @@ window.__REACTCMS_GIT_CONTENT__ = {
         "id": "nav-6",
         "text": "CONTACT US"
       }
-    ]
+    ],
+    "ad.body_section": {
+      "background": "#ffffff",
+      "paddingY": 90
+    },
+    "ad.cta_section": null,
+    "ad.why_choose_us_section": null,
+    "footer.section": null,
+    "header.section": null
   }
 };
