@@ -232,13 +232,7 @@ function RuntimeAdditionsPortal({
         'footer, [data-rcms-type="footer"], .footer-section'
       );
       const parent = footer?.parentElement || document.querySelector("#root") || document.body;
-      if (footer && footer.parentElement === parent) {
-        if (portalHost.parentElement !== parent || portalHost.nextSibling !== footer) {
-          parent.insertBefore(portalHost, footer);
-        }
-      } else if (portalHost.parentElement !== parent) {
-        parent.appendChild(portalHost);
-      }
+      attachRuntimeHostFallback(portalHost, parent, footer);
       setHost(portalHost);
     };
     attach();
@@ -375,6 +369,15 @@ function RuntimeAdditionsPortal({
     ) : null,
     host
   );
+}
+function attachRuntimeHostFallback(portalHost, parent, footer) {
+  if (portalHost.parentElement === parent) return false;
+  if (footer?.parentElement === parent) {
+    parent.insertBefore(portalHost, footer);
+  } else {
+    parent.appendChild(portalHost);
+  }
+  return true;
 }
 function BuilderSections({
   websiteId,
@@ -764,6 +767,36 @@ function dispatchRegionValue(websiteId, pageId, regionId, value) {
 function runtimeRegionContentSource(editMode) {
   return editMode ? "draft" : "published";
 }
+function registerEditableRegionState(current, pageId, regionId, type, label, defaultValue) {
+  const pageRegions = current[pageId] || {};
+  const existing = pageRegions[regionId];
+  if (existing?.type === type && existing.label === label && JSON.stringify(existing.defaultValue) === JSON.stringify(defaultValue)) {
+    return current;
+  }
+  return {
+    ...current,
+    [pageId]: {
+      ...pageRegions,
+      [regionId]: {
+        id: regionId,
+        type,
+        label,
+        editable: true,
+        ...defaultValue !== void 0 ? { defaultValue } : {},
+        registeredAt: existing?.registeredAt || Date.now()
+      }
+    }
+  };
+}
+function unregisterEditableRegionState(current, pageId, regionId) {
+  const currentPageRegions = current[pageId];
+  if (!currentPageRegions || !Object.prototype.hasOwnProperty.call(currentPageRegions, regionId)) {
+    return current;
+  }
+  const pageRegions = { ...currentPageRegions };
+  delete pageRegions[regionId];
+  return { ...current, [pageId]: pageRegions };
+}
 function RegionContentHydrator({
   websiteId,
   apiKey
@@ -847,36 +880,23 @@ function RuntimeProvider({
     unregisterLayout,
     unregisterNavigation
   ]);
-  const registerRegion = (pageId, regionId, type, label, defaultValue) => {
-    setRegions((current) => {
-      const pageRegions = current[pageId] || {};
-      const existing = pageRegions[regionId];
-      if (existing?.type === type && existing.label === label && JSON.stringify(existing.defaultValue) === JSON.stringify(defaultValue)) {
-        return current;
-      }
-      return {
-        ...current,
-        [pageId]: {
-          ...pageRegions,
-          [regionId]: {
-            id: regionId,
-            type,
-            label,
-            editable: true,
-            ...defaultValue !== void 0 ? { defaultValue } : {},
-            registeredAt: existing?.registeredAt || Date.now()
-          }
-        }
-      };
-    });
-  };
-  const unregisterRegion = (pageId, regionId) => {
-    setRegions((current) => {
-      const pageRegions = { ...current[pageId] || {} };
-      delete pageRegions[regionId];
-      return { ...current, [pageId]: pageRegions };
-    });
-  };
+  const registerRegion = (0, import_react3.useCallback)((pageId, regionId, type, label, defaultValue) => {
+    setRegions((current) => registerEditableRegionState(
+      current,
+      pageId,
+      regionId,
+      type,
+      label,
+      defaultValue
+    ));
+  }, []);
+  const unregisterRegion = (0, import_react3.useCallback)((pageId, regionId) => {
+    setRegions((current) => unregisterEditableRegionState(current, pageId, regionId));
+  }, []);
+  const editableRegistryValue = (0, import_react3.useMemo)(() => ({
+    registerRegion,
+    unregisterRegion
+  }), [registerRegion, unregisterRegion]);
   (0, import_react3.useEffect)(() => {
     const start = async () => {
       await registerWebsite(websiteId, apiKey);
@@ -910,7 +930,7 @@ function RuntimeProvider({
       void registerEditableRegions(websiteId, apiKey, pageId, pageRegions);
     });
   }, [regions, websiteId, apiKey]);
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RuntimeContext.Provider, { value: runtimeContextValue, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_reactcms_sdk11.EditableRegistryContext.Provider, { value: { registerRegion, unregisterRegion }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_reactcms_sdk11.CMSProvider, { websiteId, apiKey, environment: "production", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RuntimeContext.Provider, { value: runtimeContextValue, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_reactcms_sdk11.EditableRegistryContext.Provider, { value: editableRegistryValue, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_reactcms_sdk11.CMSProvider, { websiteId, apiKey, environment: "production", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RegionContentHydrator, { websiteId, apiKey }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
       BuilderSections,
