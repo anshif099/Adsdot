@@ -21,10 +21,21 @@ window.__REACTCMS_GIT_CONTENT__ = {
       "alt": "Triosis Symbol",
       "src": "https://react-cms-pro.vercel.app/api/media?websiteId=-Oz5k0Sb8BKbOxfOSxq8&fileId=-Ozjc0ynucRcqztUR7rM"
     },
-    "ad.cta_subtext": "Get in touch with our expert team today to schedule a consultation.",
+    "ad.cta_subtext": {
+      "color": "#000000",
+      "text": "Get in touch with our expert team today to schedule a consultation."
+    },
     "ad.cta_title": {
       "color": "#000000",
-      "text": "Ready to transform your business with Ad?"
+      "fontSize": "32px",
+      "fontSizeMobile": "22px",
+      "fontSizeTablet": "28px",
+      "maxWidth": "100%",
+      "overflowWrapDesktop": "normal",
+      "text": "Ready to transform your business with Ad?",
+      "whiteSpaceDesktop": "nowrap",
+      "width": "100%",
+      "wordBreakDesktop": "normal"
     },
     "ad.description": "We deliver innovative technology, creative marketing, and measurable digital strategies to help ambitious businesses grow and achieve long-term success.",
     "ad.feature1_desc": "Tailored strategies that align with your core business objectives to maximize ROI and digital efficiency.",
@@ -194,7 +205,7 @@ window.__REACTCMS_GIT_CONTENT__ = {
       }
     ],
     "ad.body_section": {
-      "background": "#ffffff",
+      "background": "rgb(255, 255, 255)",
       "paddingY": 90
     },
     "ad.cta_section": {
