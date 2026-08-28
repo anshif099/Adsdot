@@ -1,6 +1,9 @@
 window.__REACTCMS_GIT_CONTENT__ = {
   "ad": {
-    "ad.title": "API KEY",
+    "ad.title": {
+      "text": "API KEY",
+      "color": "#000000"
+    },
     "ad.hero": {
       "background": "#ffffff"
     },
